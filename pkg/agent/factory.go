@@ -15,7 +15,7 @@ import (
 
 var factoryCounter atomic.Int64
 
-// LocalFactory creates in-process LocalAgent instances.
+// LocalFactory creates in-process LocalAgent instances backed by core.Harness.
 type LocalFactory struct {
 	Provider   llm.Provider
 	Session    session.Store
@@ -74,8 +74,13 @@ func (f *LocalFactory) Create(ctx context.Context, spec AgentSpec) (Agent, error
 	}
 
 	filtered := f.Registry.Filter(cap.Tools)
-	runner := core.NewRunner(f.Provider, filtered)
-	runner.Logger = f.Logger
+
+	boundaries := core.Boundaries{
+		Provider: f.Provider,
+		Tools:    filtered,
+		Session:  f.Session,
+		Logger:   f.Logger,
+	}
 
 	id := fmt.Sprintf("agent-%d-%d", time.Now().UnixNano(), factoryCounter.Add(1))
 	info := AgentInfo{
@@ -84,5 +89,5 @@ func (f *LocalFactory) Create(ctx context.Context, spec AgentSpec) (Agent, error
 		Metadata:     spec.Metadata,
 	}
 
-	return NewLocalAgent(id, info, runner, f.Session, filtered), nil
+	return NewLocalAgent(id, info, boundaries, f.Session, filtered), nil
 }

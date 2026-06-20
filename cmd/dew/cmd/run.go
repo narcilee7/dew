@@ -17,13 +17,13 @@ var runCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := DefaultConfig()
-		h, err := NewHarness(cfg)
+		rt, err := NewRuntime(cfg)
 		if err != nil {
 			return err
 		}
 
 		ctx := context.Background()
-		sess, err := h.NewSession(ctx)
+		sess, err := rt.NewSession(ctx)
 		if err != nil {
 			return err
 		}
@@ -34,21 +34,15 @@ var runCmd = &cobra.Command{
 			Content: args[0],
 		})
 
-		runner := core.NewRunner(h.Provider, h.Registry)
-		runner.Logger = h.Logger
-		runner.Context = &core.SimpleContextManager{SystemPrompt: cfg.SystemPrompt}
-
-		events := make(chan event.Event, 64)
 		done := make(chan error, 1)
 		go func() {
-			done <- runner.Run(ctx, sess, core.RunOptions{
+			done <- rt.Harness.Run(ctx, sess, core.RunOptions{
 				MaxTurns: cfg.MaxTurns,
 				Timeout:  time.Duration(cfg.TimeoutMs) * time.Millisecond,
-			}, events)
-			close(events)
+			})
 		}()
 
-		for ev := range events {
+		for ev := range rt.Harness.Events() {
 			printEvent(ev)
 		}
 

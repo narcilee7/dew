@@ -2,26 +2,32 @@
 
 > Go-native Agent Harness
 
-**dew** is a Go-native runtime for coding agents. It is not a single chatbot CLI;
-it is a *harness* that wires together isolated capabilities—FileSystem, Session,
-Sandbox, Tools, Memory, Plans, and Soul—so the same agent runtime can be exposed
-as a CLI, a TUI, an RPC service, or an MCP server.
+**dew** is a Go-native harness for coding agents. It is not a graph workflow
+framework and it is not a single chatbot CLI. It is a *runtime* that provides
+isolated boundaries, a plugin hook system, and a minimal default agent loop.
+
+Upper layers — skills, custom agent loops, multi-agent patterns, memory, plans,
+and personality — are built *on top of* the harness, not wired into it.
 
 ---
 
 ## Vision
 
-Build a **thin harness, fat capabilities** agent runtime:
+Build a **small core, rich plugins** agent harness:
 
+- **Harness, not framework**: core provides boundaries, events, safety, and
+  hooks. It does not own your agent's thought structure.
+- **Plugin hooks over graph nodes**: extensibility comes from lifecycle hooks,
+  not from a DAG or state-graph DSL.
+- **Skills as the unit of capability**: behavior is packaged as self-contained
+  skills (prompts + tools + conventions) that the harness loads.
 - **Interface-first**: every isolatable resource is an interface. Callers do not
   know whether a capability runs in-process, cross-process, or remote.
 - **Event-sourced**: the agent loop emits a stream of lifecycle events. Sessions,
-  audit logs, and replay all consume the same event stream.
+  audit logs, UI updates, and replay all consume the same event stream.
 - **Multi-surface**: one runtime, many surfaces (CLI / TUI / gRPC / MCP / A2A).
-- **Monorepo → multi-repo**: each `pkg/X` is designed to become an independent
-  Go module (`dew-core`, `dew-fs`, `dew-session`, `dew-tools`, `dew-memory`, …).
-- **Human + team memory**: explicit project instructions (`AGENTS.md`) plus a
-  learned **SOUL** layer that remembers how the agent and user like to work.
+- **Terminal-first, batteries included**: the default CLI ships with useful
+  built-in skills, but everything can be replaced.
 
 ---
 
@@ -30,84 +36,106 @@ Build a **thin harness, fat capabilities** agent runtime:
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Surfaces                                    │
-│   CLI (cobra)   TUI (bubbletea)   RPC (gRPC)   MCP Server   A2A    │
+│   CLI (cobra)   TUI (bubbletea)   gRPC   MCP Server   Library       │
 └─────────────────────────────┬───────────────────────────────────────┘
                               │
 ┌─────────────────────────────▼───────────────────────────────────────┐
-│                         dew-core                                    │
-│   Runner │ Agent Loop │ Tool Registry │ Safety │ Context Manager   │
+│                      dew-core (Harness)                             │
+│   Boundaries │ Event Bus │ Safety │ Plugin Registry │ Default Loop │
 └─────────────────────────────┬───────────────────────────────────────┘
                               │
-        ┌─────────────┬───────┴───────┬─────────────┐
-        ▼             ▼               ▼             ▼
-   ┌─────────┐  ┌──────────┐  ┌───────────┐  ┌──────────┐
-   │  dew-fs │  │dew-session│  │ dew-sandbox│  │ dew-llm  │
-   │FileSystem│  │  Session  │  │  Sandbox  │  │ Provider │
-   └─────────┘  └──────────┘  └───────────┘  └──────────┘
-        │             │               │             │
-   Local/Mem/S3   JSONL/Memory   Docker/gVisor/…  OpenAI/Anthropic/…
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+   ┌─────────┐          ┌──────────┐          ┌──────────┐
+   │  Skills │          │ Plugins  │          │  Agents  │
+   │ .dew/   │          │ (hooks)  │          │ (custom  │
+   │ skills/ │          │          │          │  loops)  │
+   └─────────┘          └──────────┘          └──────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+   ┌─────────┐          ┌──────────┐          ┌──────────┐
+   │  dew-fs │          │dew-session│          │dew-sandbox│
+   │ dew-llm │          │dew-tools  │          │dew-storage│
+   └─────────┘          └──────────┘          └──────────┘
 ```
 
 Cross-cutting layers:
 
 - **dew-event**: agent lifecycle events (`TurnStart`, `ToolResult`, `Error`, …).
 - **dew-storage**: generic file-backed stores on top of `fs.FileSystem`.
-- **dew-memory**: cross-session knowledge (rules, facts, preferences, lessons).
-- **dew-plan**: task plans and checkpoints.
-- **dew-soul**: persistent agent self-model and user preferences.
 - **dew-log**: structured audit logging.
+- **dew-trajectory**: model calls, agent traces, and replay data.
 
-See [docs/design/](docs/design/) for detailed design documents.
+Upper-layer capabilities (skills/plugins):
+
+- **dew-memory**: cross-session knowledge.
+- **dew-plan**: task plans and checkpoints.
+- **dew-soul**: persistent agent self-model.
+
+See [docs/design/](docs/design/) for detailed design documents, especially
+[harness.md](docs/design/harness.md) and [blueprint.md](docs/design/blueprint.md).
 
 ---
 
 ## Design Philosophy
 
-1. **Isolation as Interface**  
-   FileSystem, Session, Sandbox are explicit interfaces, not implementation
-   details. Upper layers only access resources through these boundaries.
+1. **Harness, not framework**  
+   dew core provides boundaries, events, safety, and hooks. It does not own the
+   agent's decision structure or force a graph/workflow model.
 
-2. **Thin Harness, Fat Capabilities**  
-   The agent loop is minimal; context management, safety, tool registry,
-   session, memory, and eval are pluggable capabilities.
+2. **Plugin hooks over graph nodes**  
+   Extensibility comes from lifecycle hooks (`BeforeTurn`, `AfterToolUse`, …),
+   not from a DAG or state-graph DSL.
 
-3. **Event-driven + Channel-native**  
+3. **Skills as the unit of capability**  
+   A skill is a self-contained package of prompts, tools, and conventions. Most
+   user-facing behavior is a skill.
+
+4. **Isolation as Interface**  
+   FileSystem, Session, Sandbox, Provider are explicit interfaces. Upper layers
+   access resources only through boundaries.
+
+5. **Event-driven + Channel-native**  
    Go `chan event.Event` and `context.Context` replace async iterables and
    AbortControllers.
 
-4. **MCP-native**  
+6. **MCP-native**  
    Built-in tools and MCP tools are treated uniformly as `tools.Tool`.
 
-5. **Learn, not just remember**  
-   Static project instructions (`AGENTS.md`) keep team consistency.
-   The SOUL layer learns per-user preferences from session transcripts.
+7. **Terminal-first, batteries included**  
+   The default experience ships with useful built-in skills, but every part can
+   be replaced or disabled.
 
 ---
 
 ## Current Status
 
-Phase 1 of the harness is done:
+Phase 1 skeleton is done:
 
-- [x] `pkg/core` — Runner, Safety, ContextManager, ToolRegistry
+- [x] `pkg/core` — Harness + Plugin Hook system + DefaultLoop
 - [x] `pkg/tools` — `bash`, `read`, `task` tools
 - [x] `pkg/event` — agent lifecycle events
-- [x] `pkg/agent` — `Agent`/`Pool`/`Registry` interfaces + `LocalAgent` implementation
+- [x] `pkg/agent` — `Agent`/`Pool`/`Registry` interfaces + `LocalAgent`
 - [x] `pkg/session` — `Session`/`Store` interfaces + in-memory implementation
 - [x] `pkg/storage` — generic `FileStore` + `JSONLSessionStore`
 - [x] `pkg/fs` — isolated filesystem interface
 - [x] `pkg/sandbox` — sandbox interface + local-process implementation
-- [x] `pkg/llm` — normalized LLM provider + mock provider
-- [x] `pkg/memory`, `pkg/plan`, `pkg/soul`, `pkg/log` — storage interfaces and file implementations
+- [x] `pkg/llm` — normalized LLM provider + mock provider (to be unified under `llm.Model` capabilities)
+- [x] `pkg/config`, `pkg/log` — config and audit logging skeletons
+- [x] `pkg/memory`, `pkg/plan`, `pkg/soul` — storage skeletons (to become plugins/skills)
 - [x] `cmd/dew` — cobra CLI with `run`, `chat`, `session`, `agent`, `version`
 
-In progress / next:
+Next (revised priorities):
 
-- [ ] TUI (`dew tui`)
-- [ ] gRPC service (`dew server`)
-- [ ] MCP server
-- [ ] Real LLM providers (OpenAI, Anthropic, etc.)
-- [ ] Persistent session resume
-- [ ] SOUL observation/reflection loop
+- [x] Refactor `pkg/core` into a Harness with plugin hooks
+- [ ] Define and load the Skill package spec (`SKILL.md` + `manifest.toml`)
+- [ ] Simplify `pkg/plan`, `pkg/memory`, `pkg/soul` into storage-backed plugins
+- [ ] TUI (`dew tui`) with componentized bubbletea models
+- [ ] Unified `llm.Model` + real LLM providers (OpenAI, Anthropic, etc.)
+- [ ] Persistent session resume via event replay
+- [ ] Trajectory storage (`pkg/trajectory`)
+- [ ] gRPC / MCP server surfaces (worker mode)
 - [ ] Eval harness
 
 ---

@@ -15,21 +15,21 @@ import (
 
 // LocalAgent is an in-process agent implementation.
 type LocalAgent struct {
-	id      string
-	info    AgentInfo
-	runner  *core.Runner
-	session session.Store
-	tools   tools.ToolRegistry
+	id        string
+	info      AgentInfo
+	boundaries core.Boundaries
+	session   session.Store
+	tools     tools.ToolRegistry
 }
 
 // NewLocalAgent creates a new in-process agent.
-func NewLocalAgent(id string, info AgentInfo, runner *core.Runner, store session.Store, registry tools.ToolRegistry) *LocalAgent {
+func NewLocalAgent(id string, info AgentInfo, boundaries core.Boundaries, store session.Store, registry tools.ToolRegistry) *LocalAgent {
 	return &LocalAgent{
-		id:      id,
-		info:    info,
-		runner:  runner,
-		session: store,
-		tools:   registry,
+		id:         id,
+		info:       info,
+		boundaries: boundaries,
+		session:    store,
+		tools:      registry,
 	}
 }
 
@@ -83,7 +83,20 @@ func (a *LocalAgent) Run(ctx context.Context, task Task, events chan<- event.Eve
 		opts.Timeout = 5 * time.Minute
 	}
 
-	err = a.runner.Run(ctx, sess, opts, events)
+	harness := core.NewHarness(a.id, a.boundaries)
+	if events != nil {
+		go func() {
+			for ev := range harness.Events() {
+				select {
+				case events <- ev:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+
+	err = harness.Run(ctx, sess, opts)
 
 	// Build summary from last assistant message.
 	var summary string

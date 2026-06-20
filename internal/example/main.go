@@ -69,12 +69,19 @@ func main() {
 		}, nil
 	})
 
-	// 6. Create runner.
-	runner := core.NewRunner(provider, registry)
-	runner.Logger = logger
-	runner.Context = &core.SimpleContextManager{
-		SystemPrompt: "You are dew, a helpful coding agent.",
-	}
+	// 6. Create harness.
+	harness := core.NewHarness("", core.Boundaries{
+		Provider: provider,
+		Tools:    registry,
+		Session:  store,
+		Logger:   logger,
+	})
+	harness.SetLoop(&core.DefaultLoop{
+		Context: &core.SimpleContextManager{
+			SystemPrompt: "You are dew, a helpful coding agent.",
+		},
+		Logger: logger,
+	})
 
 	// 7. Seed user message.
 	_ = sess.Append(context.Background(), llm.Message{
@@ -87,11 +94,17 @@ func main() {
 	done := make(chan error, 1)
 
 	go func() {
-		done <- runner.Run(context.Background(), sess, core.RunOptions{
+		for ev := range harness.Events() {
+			events <- ev
+		}
+		close(events)
+	}()
+
+	go func() {
+		done <- harness.Run(context.Background(), sess, core.RunOptions{
 			MaxTurns: 10,
 			Timeout:  30 * time.Second,
-		}, events)
-		close(events)
+		})
 	}()
 
 	fmt.Println("=== dew events ===")

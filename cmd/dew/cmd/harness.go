@@ -17,8 +17,10 @@ import (
 	"github.com/narcilee7/dew/pkg/tools"
 )
 
-// Harness holds the runtime dependencies for CLI commands.
-type Harness struct {
+// Runtime holds the runtime dependencies for CLI commands.
+// It is distinct from core.Harness: Runtime is the CLI-level wiring,
+// while core.Harness is the agent runtime itself.
+type Runtime struct {
 	Logger   *slog.Logger
 	Config   Config
 	Provider llm.Provider
@@ -26,6 +28,7 @@ type Harness struct {
 	Session  session.Store
 	Factory  agent.AgentFactory
 	Pool     agent.Pool
+	Harness  core.Harness
 }
 
 // Config is a simplified runtime config.
@@ -51,8 +54,8 @@ func DefaultConfig() Config {
 	}
 }
 
-// NewHarness builds the runtime harness.
-func NewHarness(cfg Config) (*Harness, error) {
+// NewRuntime builds the CLI runtime.
+func NewRuntime(cfg Config) (*Runtime, error) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	provider := llm.NewMockProviderFunc(mockProvider)
@@ -67,7 +70,18 @@ func NewHarness(cfg Config) (*Harness, error) {
 	factory := agent.NewLocalFactory(provider, sessStore, registry, logger)
 	pool := agent.NewPool(factory, agent.PoolOptions{MaxIdle: 4})
 
-	return &Harness{
+	harness := core.NewHarness("", core.Boundaries{
+		Provider: provider,
+		Tools:    registry,
+		Session:  sessStore,
+		Logger:   logger,
+	})
+	harness.SetLoop(&core.DefaultLoop{
+		Context: &core.SimpleContextManager{SystemPrompt: cfg.SystemPrompt},
+		Logger:  logger,
+	})
+
+	return &Runtime{
 		Logger:   logger,
 		Config:   cfg,
 		Provider: provider,
@@ -75,11 +89,12 @@ func NewHarness(cfg Config) (*Harness, error) {
 		Session:  sessStore,
 		Factory:  factory,
 		Pool:     pool,
+		Harness:  harness,
 	}, nil
 }
 
 // NewSession creates a new session with isolated filesystem and sandbox.
-func (h *Harness) NewSession(ctx context.Context) (session.Session, error) {
+func (r *Runtime) NewSession(ctx context.Context) (session.Session, error) {
 	root, err := os.MkdirTemp("", "dew-*")
 	if err != nil {
 		return nil, fmt.Errorf("create root: %w", err)
@@ -87,7 +102,7 @@ func (h *Harness) NewSession(ctx context.Context) (session.Session, error) {
 	fsys := fs.NewLocal(root)
 	box := sandbox.NewLocal("main", fsys)
 
-	return h.Session.Create(ctx, session.CreateOptions{
+	return r.Session.Create(ctx, session.CreateOptions{
 		ID:      fmt.Sprintf("session-%d", time.Now().UnixNano()),
 		FS:      fsys,
 		Sandbox: box,
