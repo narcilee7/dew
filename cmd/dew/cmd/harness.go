@@ -14,6 +14,7 @@ import (
 	"github.com/narcilee7/dew/pkg/llm"
 	"github.com/narcilee7/dew/pkg/sandbox"
 	"github.com/narcilee7/dew/pkg/session"
+	"github.com/narcilee7/dew/pkg/skill"
 	"github.com/narcilee7/dew/pkg/tools"
 )
 
@@ -80,6 +81,21 @@ func NewRuntime(cfg Config) (*Runtime, error) {
 		Context: &core.SimpleContextManager{SystemPrompt: cfg.SystemPrompt},
 		Logger:  logger,
 	})
+
+	// Load project-local and user-global skills.
+	loader := skill.NewLoader()
+	skills, err := loader.Load(context.Background())
+	if err != nil {
+		logger.Warn("failed to load skills", "error", err)
+	} else {
+		for _, s := range skills {
+			if err := harness.Use(s.Plugin()); err != nil {
+				logger.Warn("failed to use skill", "skill", s.Name(), "error", err)
+			} else {
+				logger.Info("loaded skill", "skill", s.Name())
+			}
+		}
+	}
 
 	return &Runtime{
 		Logger:   logger,

@@ -69,12 +69,14 @@ Cross-cutting layers:
 
 Upper-layer capabilities (skills/plugins):
 
+- **dew-skill**: Skill package spec, loader, and plugin adapter.
 - **dew-memory**: cross-session knowledge.
 - **dew-plan**: task plans and checkpoints.
 - **dew-soul**: persistent agent self-model.
 
 See [docs/design/](docs/design/) for detailed design documents, especially
-[harness.md](docs/design/harness.md) and [blueprint.md](docs/design/blueprint.md).
+[harness.md](docs/design/harness.md), [blueprint.md](docs/design/blueprint.md),
+and [skill.md](docs/design/skill.md).
 
 ---
 
@@ -114,6 +116,7 @@ See [docs/design/](docs/design/) for detailed design documents, especially
 Phase 1 skeleton is done:
 
 - [x] `pkg/core` — Harness + Plugin Hook system + DefaultLoop
+- [x] `pkg/skill` — Skill package spec + loader + plugin adapter
 - [x] `pkg/tools` — `bash`, `read`, `task` tools
 - [x] `pkg/event` — agent lifecycle events
 - [x] `pkg/agent` — `Agent`/`Pool`/`Registry` interfaces + `LocalAgent`
@@ -129,7 +132,7 @@ Phase 1 skeleton is done:
 Next (revised priorities):
 
 - [x] Refactor `pkg/core` into a Harness with plugin hooks
-- [ ] Define and load the Skill package spec (`SKILL.md` + `manifest.toml`)
+- [x] Define and load the Skill package spec (`SKILL.md` + `manifest.toml`)
 - [ ] Simplify `pkg/plan`, `pkg/memory`, `pkg/soul` into storage-backed plugins
 - [ ] TUI (`dew tui`) with componentized bubbletea models
 - [ ] Unified `llm.Model` + real LLM providers (OpenAI, Anthropic, etc.)

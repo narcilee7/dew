@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
+	"sync"
 
 	"github.com/narcilee7/dew/pkg/event"
 	"github.com/narcilee7/dew/pkg/fs"
@@ -21,9 +23,11 @@ type Loop interface {
 
 // DefaultLoop is the standard ReAct loop.
 type DefaultLoop struct {
-	Safety  SafetyLayer
-	Context ContextManager
-	Logger  *slog.Logger
+	Safety         SafetyLayer
+	Context        ContextManager
+	Logger         *slog.Logger
+	systemPrompts  []string
+	promptsMu      sync.RWMutex
 }
 
 // Run executes the default agent loop.
@@ -197,11 +201,38 @@ func (l *DefaultLoop) Run(ctx context.Context, h Harness, sess session.Session, 
 	return fmt.Errorf("max turns exceeded")
 }
 
+// AddSystemPromptFragment appends a prompt fragment to the system prompt.
+// It is used by skills and plugins to inject domain-specific instructions.
+func (l *DefaultLoop) AddSystemPromptFragment(s string) {
+	l.promptsMu.Lock()
+	defer l.promptsMu.Unlock()
+	l.systemPrompts = append(l.systemPrompts, s)
+}
+
+// SystemPromptFragments returns the current prompt fragments.
+func (l *DefaultLoop) SystemPromptFragments() []string {
+	l.promptsMu.RLock()
+	defer l.promptsMu.RUnlock()
+	return append([]string(nil), l.systemPrompts...)
+}
+
 func (l *DefaultLoop) step(ctx context.Context, h Harness, sess session.Session) (*llm.Response, error) {
 	b := h.Boundaries()
 	ctxLLM, err := l.Context.Build(sess, b.Tools)
 	if err != nil {
 		return nil, err
+	}
+
+	l.promptsMu.RLock()
+	fragments := append([]string(nil), l.systemPrompts...)
+	l.promptsMu.RUnlock()
+	if len(fragments) > 0 {
+		prefix := strings.Join(fragments, "\n\n")
+		if ctxLLM.SystemPrompt != "" {
+			ctxLLM.SystemPrompt = prefix + "\n\n" + ctxLLM.SystemPrompt
+		} else {
+			ctxLLM.SystemPrompt = prefix
+		}
 	}
 
 	resp, err := b.Provider.Complete(ctx, llm.Model{}, ctxLLM, llm.Options{})

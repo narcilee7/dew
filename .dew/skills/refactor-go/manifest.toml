@@ -1,0 +1,4 @@
+name = "refactor-go"
+version = "0.1.0"
+description = "Refactor Go code with small, reviewable changes"
+system_prompt = "prompts/system.md"
