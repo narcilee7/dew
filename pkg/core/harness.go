@@ -69,6 +69,11 @@ type DefaultHarness struct {
 	loop    Loop
 	events  chan event.Event
 	mu      sync.RWMutex
+
+	// run state used to execute HookOnEvent hooks inside Emit.
+	runMu       sync.RWMutex
+	runCtx      context.Context
+	currentSess session.Session
 }
 
 // NewHarness creates a new DefaultHarness with the given boundaries.
@@ -107,6 +112,17 @@ func (h *DefaultHarness) Emit(ev event.Event) {
 	if ev == nil {
 		return
 	}
+
+	// Run HookOnEvent hooks synchronously so plugins can record or react
+	// to lifecycle events. Use the current run context/session if available.
+	h.runMu.RLock()
+	ctx := h.runCtx
+	sess := h.currentSess
+	h.runMu.RUnlock()
+	if ctx != nil {
+		_ = h.RunHooks(ctx, HookOnEvent, HookEnvironment{Harness: h, Session: sess, Event: ev})
+	}
+
 	defer func() {
 		// Ignore sends on a closed channel; the run has finished.
 		_ = recover()
@@ -145,6 +161,25 @@ func (h *DefaultHarness) Loop() Loop {
 	return h.loop
 }
 
+// InjectSystemPromptFragment injects a prompt fragment into the default loop
+// if the harness is a DefaultHarness with a DefaultLoop. It is a convenience
+// helper for plugins that need to modify the system prompt.
+func InjectSystemPromptFragment(h Harness, text string) error {
+	if text == "" {
+		return nil
+	}
+	dh, ok := h.(*DefaultHarness)
+	if !ok {
+		return nil
+	}
+	loop, ok := dh.Loop().(*DefaultLoop)
+	if !ok {
+		return nil
+	}
+	loop.AddSystemPromptFragment(text)
+	return nil
+}
+
 // Run executes the configured loop with plugin hooks.
 // The event channel is closed when the run completes.
 func (h *DefaultHarness) Run(ctx context.Context, sess session.Session, opts RunOptions) error {
@@ -160,6 +195,17 @@ func (h *DefaultHarness) Run(ctx context.Context, sess session.Session, opts Run
 
 	defer func() {
 		close(h.events)
+	}()
+
+	h.runMu.Lock()
+	h.runCtx = ctx
+	h.currentSess = sess
+	h.runMu.Unlock()
+	defer func() {
+		h.runMu.Lock()
+		h.runCtx = nil
+		h.currentSess = nil
+		h.runMu.Unlock()
 	}()
 
 	if err := h.RunHooks(ctx, HookBeforeSession, HookEnvironment{Harness: h, Session: sess}); err != nil {

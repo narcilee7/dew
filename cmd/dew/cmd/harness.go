@@ -9,13 +9,17 @@ import (
 	"time"
 
 	"github.com/narcilee7/dew/pkg/agent"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/core"
 	"github.com/narcilee7/dew/pkg/fs"
-	"github.com/narcilee7/dew/pkg/ai"
+	"github.com/narcilee7/dew/pkg/memory"
+	"github.com/narcilee7/dew/pkg/plan"
 	"github.com/narcilee7/dew/pkg/sandbox"
 	"github.com/narcilee7/dew/pkg/session"
 	"github.com/narcilee7/dew/pkg/skill"
+	"github.com/narcilee7/dew/pkg/soul"
 	"github.com/narcilee7/dew/pkg/tools"
+	"github.com/narcilee7/dew/pkg/trajectory"
 )
 
 // Runtime holds the runtime dependencies for CLI commands.
@@ -103,6 +107,18 @@ func NewRuntime(cfg Config) (*Runtime, error) {
 				logger.Info("loaded skill", "skill", s.Name())
 			}
 		}
+	}
+
+	// Register built-in memory / soul / plan plugins backed by persistent storage.
+	if err := os.MkdirAll(cfg.DataDir, 0o755); err == nil {
+		dataFS := fs.NewLocal(cfg.DataDir)
+		_ = harness.Use(memory.NewPlugin(dataFS))
+		_ = harness.Use(soul.NewPlugin(dataFS, "soul/soul.md"))
+		_ = harness.Use(plan.NewPlugin(dataFS))
+		_ = harness.Use(trajectory.NewPlugin(dataFS))
+		logger.Info("loaded built-in plugins", "datadir", cfg.DataDir)
+	} else {
+		logger.Warn("failed to create data dir, built-in plugins disabled", "error", err)
 	}
 
 	return &Runtime{
