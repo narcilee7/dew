@@ -10,7 +10,7 @@ import (
 	"github.com/narcilee7/dew/pkg/core"
 	"github.com/narcilee7/dew/pkg/event"
 	"github.com/narcilee7/dew/pkg/fs"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/sandbox"
 	"github.com/narcilee7/dew/pkg/session"
 	"github.com/narcilee7/dew/pkg/tools"
@@ -50,21 +50,21 @@ func main() {
 	_ = registry.Register(&tools.BashTool{})
 
 	// 5. Create a mock provider that triggers a bash tool call once, then stops.
-	provider := llm.NewMockProviderFunc(func(ctx context.Context, model llm.Model, context llm.Context, opts llm.Options) (*llm.Response, error) {
+	provider := ai.NewMockProviderFunc(func(ctx context.Context, model ai.Model, context ai.Context, opts ai.ChatOptions) (*ai.Response, error) {
 		// If the last assistant message already had tool calls, finish.
 		for i := len(context.Messages) - 1; i >= 0; i-- {
 			m := context.Messages[i]
 			if m.Role == core.RoleAssistant && len(m.ToolCalls) > 0 {
-				return &llm.Response{Content: "Done."}, nil
+				return &ai.Response{Content: "Done."}, nil
 			}
 			if m.Role == core.RoleUser {
 				break
 			}
 		}
-		return &llm.Response{
+		return &ai.Response{
 			Content: "I'll run a command for you.",
-			ToolCalls: []llm.ToolCall{
-				llm.MockToolCall("call-1", "bash", map[string]any{"command": "echo hello from dew"}),
+			ToolCalls: []ai.ToolCall{
+				ai.MockToolCall("call-1", "bash", map[string]any{"command": "echo hello from dew"}),
 			},
 		}, nil
 	})
@@ -84,7 +84,7 @@ func main() {
 	})
 
 	// 7. Seed user message.
-	_ = sess.Append(context.Background(), llm.Message{
+	_ = sess.Append(context.Background(), ai.Message{
 		Role:    core.RoleUser,
 		Content: "Say hello",
 	})

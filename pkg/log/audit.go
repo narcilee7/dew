@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 )
 
 // ToolCallRecord records a tool invocation.
@@ -51,7 +51,7 @@ type FileAccessRecord struct {
 }
 
 // ToolCallStart builds a record for the start of a tool call.
-func ToolCallStart(sessionID string, call llm.ToolCall) ToolCallRecord {
+func ToolCallStart(sessionID string, call ai.ToolCall) ToolCallRecord {
 	return ToolCallRecord{
 		Timestamp: time.Now(),
 		SessionID: sessionID,

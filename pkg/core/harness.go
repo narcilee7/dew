@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/narcilee7/dew/pkg/event"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/session"
 	"github.com/narcilee7/dew/pkg/tools"
 )
@@ -16,10 +16,11 @@ import (
 // Boundaries holds the isolatable resources available to a harness.
 // Every capability inside the harness is accessed through these boundaries.
 type Boundaries struct {
-	Provider llm.Provider
-	Tools    tools.ToolRegistry
-	Session  session.Store
-	Logger   *slog.Logger
+	Provider    ai.Provider
+	Tools       tools.ToolRegistry
+	Session     session.Store
+	Logger      *slog.Logger
+	ChatOptions ai.ChatOptions
 }
 
 // Harness is the core agent runtime.

@@ -8,7 +8,7 @@ import (
 
 	"github.com/narcilee7/dew/pkg/core"
 	"github.com/narcilee7/dew/pkg/event"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/session"
 	"github.com/narcilee7/dew/pkg/tools"
 )
@@ -65,7 +65,7 @@ func (a *LocalAgent) Run(ctx context.Context, task Task, events chan<- event.Eve
 	}
 
 	// Seed user goal.
-	if err := sess.Append(ctx, llm.Message{
+	if err := sess.Append(ctx, ai.Message{
 		Role:    core.RoleUser,
 		Content: task.Goal,
 	}); err != nil {

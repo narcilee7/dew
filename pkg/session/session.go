@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/narcilee7/dew/pkg/fs"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/sandbox"
 )
 
@@ -22,7 +22,7 @@ type CreateOptions struct {
 type memorySession struct {
 	id       string
 	parentID string
-	messages []llm.Message
+	messages []ai.Message
 	fs       fs.FileSystem
 	sandbox  sandbox.Sandbox
 	mu       sync.RWMutex
@@ -33,7 +33,7 @@ func newMemorySession(id, parentID string, fsys fs.FileSystem, box sandbox.Sandb
 	return &memorySession{
 		id:       id,
 		parentID: parentID,
-		messages: make([]llm.Message, 0),
+		messages: make([]ai.Message, 0),
 		fs:       fsys,
 		sandbox:  box,
 	}
@@ -51,16 +51,16 @@ func (s *memorySession) ID() string { return s.id }
 func (s *memorySession) ParentID() string { return s.parentID }
 
 // Messages returns a copy of the session messages.
-func (s *memorySession) Messages() []llm.Message {
+func (s *memorySession) Messages() []ai.Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make([]llm.Message, len(s.messages))
+	out := make([]ai.Message, len(s.messages))
 	copy(out, s.messages)
 	return out
 }
 
 // Append adds a message to the session.
-func (s *memorySession) Append(ctx context.Context, msg llm.Message) error {
+func (s *memorySession) Append(ctx context.Context, msg ai.Message) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.messages = append(s.messages, msg)
@@ -72,7 +72,7 @@ func (s *memorySession) Fork(ctx context.Context, id string) (Session, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	child := newMemorySession(id, s.id, s.fs, s.sandbox)
-	child.messages = make([]llm.Message, len(s.messages))
+	child.messages = make([]ai.Message, len(s.messages))
 	copy(child.messages, s.messages)
 	return child, nil
 }

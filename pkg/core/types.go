@@ -16,6 +16,8 @@ type RunOptions struct {
 	Timeout      time.Duration
 	Model        string
 	SystemPrompt string
+	MaxTokens    int
+	Temperature  float64
 }
 
 // Status represents the outcome status of a task or run.

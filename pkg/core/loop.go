@@ -9,7 +9,7 @@ import (
 
 	"github.com/narcilee7/dew/pkg/event"
 	"github.com/narcilee7/dew/pkg/fs"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/sandbox"
 	"github.com/narcilee7/dew/pkg/session"
 	"github.com/narcilee7/dew/pkg/tools"
@@ -65,14 +65,14 @@ func (l *DefaultLoop) Run(ctx context.Context, h Harness, sess session.Session, 
 
 		h.Emit(event.TurnStartEvent{Turn: turn})
 
-		resp, err := l.step(ctx, h, sess)
+		resp, err := l.step(ctx, h, sess, opts)
 		if err != nil {
 			h.Emit(event.ErrorEvent{Err: err})
 			return err
 		}
 
 		// Append assistant message.
-		if err := sess.Append(ctx, llm.Message{
+		if err := sess.Append(ctx, ai.Message{
 			Role:      RoleAssistant,
 			Content:   resp.Content,
 			ToolCalls: resp.ToolCalls,
@@ -182,7 +182,7 @@ func (l *DefaultLoop) Run(ctx context.Context, h Harness, sess session.Session, 
 			if res.Metadata.Error != "" {
 				content = "error: " + res.Metadata.Error
 			}
-			_ = sess.Append(ctx, llm.Message{
+			_ = sess.Append(ctx, ai.Message{
 				Role:       RoleTool,
 				Content:    content,
 				ToolCallID: call.ID,
@@ -216,7 +216,7 @@ func (l *DefaultLoop) SystemPromptFragments() []string {
 	return append([]string(nil), l.systemPrompts...)
 }
 
-func (l *DefaultLoop) step(ctx context.Context, h Harness, sess session.Session) (*llm.Response, error) {
+func (l *DefaultLoop) step(ctx context.Context, h Harness, sess session.Session, opts RunOptions) (*ai.Response, error) {
 	b := h.Boundaries()
 	ctxLLM, err := l.Context.Build(sess, b.Tools)
 	if err != nil {
@@ -235,13 +235,32 @@ func (l *DefaultLoop) step(ctx context.Context, h Harness, sess session.Session)
 		}
 	}
 
-	resp, err := b.Provider.Complete(ctx, llm.Model{}, ctxLLM, llm.Options{})
+	model := defaultModel
+	if opts.Model != "" {
+		parsed, err := ai.ParseModel(opts.Model)
+		if err != nil {
+			return nil, err
+		}
+		model = parsed
+	}
+
+	chatOpts := b.ChatOptions
+	if opts.MaxTokens > 0 {
+		chatOpts.MaxTokens = opts.MaxTokens
+	}
+	if opts.Temperature != 0 {
+		chatOpts.Temperature = opts.Temperature
+	}
+
+	resp, err := b.Provider.Chat(ctx, model, ctxLLM, chatOpts)
 	if err != nil {
 		return nil, err
 	}
 
 	return &resp, nil
 }
+
+var defaultModel = ai.NewModel("gpt-4o", ai.ModelCapabilities{Chat: true, Tools: true, JSONMode: true})
 
 type toolEnv struct {
 	fs      fs.FileSystem

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/narcilee7/dew/pkg/core"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/spf13/cobra"
 )
 
@@ -46,13 +46,14 @@ var chatCmd = &cobra.Command{
 				break
 			}
 
-			_ = sess.Append(ctx, llm.Message{Role: core.RoleUser, Content: line})
+			_ = sess.Append(ctx, ai.Message{Role: core.RoleUser, Content: line})
 
 			done := make(chan error, 1)
 			go func() {
 				done <- rt.Harness.Run(ctx, sess, core.RunOptions{
 					MaxTurns: 1,
 					Timeout:  time.Duration(cfg.TimeoutMs) * time.Millisecond,
+					Model:    cfg.Model,
 				})
 			}()
 

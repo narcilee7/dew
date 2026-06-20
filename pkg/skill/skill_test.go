@@ -8,7 +8,7 @@ import (
 
 	"github.com/narcilee7/dew/pkg/core"
 	"github.com/narcilee7/dew/pkg/fs"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/sandbox"
 	"github.com/narcilee7/dew/pkg/session"
 )
@@ -92,8 +92,8 @@ system_prompt = "prompts/system.md"
 	})
 
 	registry := core.NewToolRegistry()
-	provider := llm.NewMockProviderFunc(func(ctx context.Context, model llm.Model, context llm.Context, opts llm.Options) (*llm.Response, error) {
-		return &llm.Response{Content: "done"}, nil
+	provider := ai.NewMockProviderFunc(func(ctx context.Context, model ai.Model, context ai.Context, opts ai.ChatOptions) (*ai.Response, error) {
+		return &ai.Response{Content: "done"}, nil
 	})
 
 	harness := core.NewHarness("test", core.Boundaries{
@@ -103,7 +103,7 @@ system_prompt = "prompts/system.md"
 	})
 	_ = harness.Use(s.Plugin())
 
-	_ = sess.Append(context.Background(), llm.Message{Role: core.RoleUser, Content: "refactor"})
+	_ = sess.Append(context.Background(), ai.Message{Role: core.RoleUser, Content: "refactor"})
 
 	done := make(chan error, 1)
 	go func() {

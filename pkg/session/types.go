@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/narcilee7/dew/pkg/fs"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/sandbox"
 )
 
@@ -20,10 +20,10 @@ type Session interface {
 	ParentID() string
 
 	// Messages returns the current conversation messages.
-	Messages() []llm.Message
+	Messages() []ai.Message
 
 	// Append adds a message to the session history.
-	Append(ctx context.Context, msg llm.Message) error
+	Append(ctx context.Context, msg ai.Message) error
 
 	// Fork creates a child session with a copy of the current state.
 	Fork(ctx context.Context, id string) (Session, error)

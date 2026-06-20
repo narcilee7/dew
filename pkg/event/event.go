@@ -1,7 +1,7 @@
 package event
 
 import (
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/tools"
 )
 
@@ -27,7 +27,7 @@ type TextDeltaEvent struct {
 
 // ToolCallStartEvent marks the start of a tool call.
 type ToolCallStartEvent struct {
-	Call llm.ToolCall `json:"call"`
+	Call ai.ToolCall `json:"call"`
 }
 
 // ToolCallDeltaEvent carries a partial argument update.

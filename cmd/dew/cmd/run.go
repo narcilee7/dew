@@ -7,7 +7,7 @@ import (
 
 	"github.com/narcilee7/dew/pkg/core"
 	"github.com/narcilee7/dew/pkg/event"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +29,7 @@ var runCmd = &cobra.Command{
 		}
 		defer sess.Close()
 
-		_ = sess.Append(ctx, llm.Message{
+		_ = sess.Append(ctx, ai.Message{
 			Role:    core.RoleUser,
 			Content: args[0],
 		})
@@ -39,6 +39,7 @@ var runCmd = &cobra.Command{
 			done <- rt.Harness.Run(ctx, sess, core.RunOptions{
 				MaxTurns: cfg.MaxTurns,
 				Timeout:  time.Duration(cfg.TimeoutMs) * time.Millisecond,
+				Model:    cfg.Model,
 			})
 		}()
 

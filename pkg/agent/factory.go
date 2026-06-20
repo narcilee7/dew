@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/narcilee7/dew/pkg/core"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/session"
 	"github.com/narcilee7/dew/pkg/tools"
 )
@@ -17,7 +17,7 @@ var factoryCounter atomic.Int64
 
 // LocalFactory creates in-process LocalAgent instances backed by core.Harness.
 type LocalFactory struct {
-	Provider   llm.Provider
+	Provider   ai.Provider
 	Session    session.Store
 	Registry   tools.ToolRegistry
 	Logger     *slog.Logger
@@ -25,7 +25,7 @@ type LocalFactory struct {
 }
 
 // NewLocalFactory creates a new LocalFactory.
-func NewLocalFactory(provider llm.Provider, store session.Store, registry tools.ToolRegistry, logger *slog.Logger) *LocalFactory {
+func NewLocalFactory(provider ai.Provider, store session.Store, registry tools.ToolRegistry, logger *slog.Logger) *LocalFactory {
 	return &LocalFactory{
 		Provider: provider,
 		Session:  store,

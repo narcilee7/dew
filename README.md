@@ -56,7 +56,7 @@ Build a **small core, rich plugins** agent harness:
         ▼                     ▼                     ▼
    ┌─────────┐          ┌──────────┐          ┌──────────┐
    │  dew-fs │          │dew-session│          │dew-sandbox│
-   │ dew-llm │          │dew-tools  │          │dew-storage│
+   │ dew-ai  │          │dew-tools  │          │dew-storage│
    └─────────┘          └──────────┘          └──────────┘
 ```
 
@@ -124,7 +124,7 @@ Phase 1 skeleton is done:
 - [x] `pkg/storage` — generic `FileStore` + `JSONLSessionStore`
 - [x] `pkg/fs` — isolated filesystem interface
 - [x] `pkg/sandbox` — sandbox interface + local-process implementation
-- [x] `pkg/llm` — normalized LLM provider + mock provider (to be unified under `llm.Model` capabilities)
+- [x] `pkg/ai` — unified `ai.Model` + `ModelCapabilities` + OpenAI provider + mock provider
 - [x] `pkg/config`, `pkg/log` — config and audit logging skeletons
 - [x] `pkg/memory`, `pkg/plan`, `pkg/soul` — storage skeletons (to become plugins/skills)
 - [x] `cmd/dew` — cobra CLI with `run`, `chat`, `session`, `agent`, `version`
@@ -135,7 +135,7 @@ Next (revised priorities):
 - [x] Define and load the Skill package spec (`SKILL.md` + `manifest.toml`)
 - [ ] Simplify `pkg/plan`, `pkg/memory`, `pkg/soul` into storage-backed plugins
 - [ ] TUI (`dew tui`) with componentized bubbletea models
-- [ ] Unified `llm.Model` + real LLM providers (OpenAI, Anthropic, etc.)
+- [x] Unified `ai.Model` + real LLM providers (OpenAI, Anthropic, etc.)
 - [ ] Persistent session resume via event replay
 - [ ] Trajectory storage (`pkg/trajectory`)
 - [ ] gRPC / MCP server surfaces (worker mode)

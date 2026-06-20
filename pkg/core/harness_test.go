@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/narcilee7/dew/pkg/fs"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/sandbox"
 	"github.com/narcilee7/dew/pkg/session"
 	"github.com/narcilee7/dew/pkg/tools"
@@ -59,8 +59,8 @@ func TestHarnessRunsPluginsAndLoop(t *testing.T) {
 	registry := NewToolRegistry()
 	_ = registry.Register(&tools.BashTool{})
 
-	provider := llm.NewMockProviderFunc(func(ctx context.Context, model llm.Model, context llm.Context, opts llm.Options) (*llm.Response, error) {
-		return &llm.Response{
+	provider := ai.NewMockProviderFunc(func(ctx context.Context, model ai.Model, context ai.Context, opts ai.ChatOptions) (*ai.Response, error) {
+		return &ai.Response{
 			Content: "hello",
 		}, nil
 	})
@@ -75,7 +75,7 @@ func TestHarnessRunsPluginsAndLoop(t *testing.T) {
 		t.Fatalf("use plugin: %v", err)
 	}
 
-	_ = sess.Append(context.Background(), llm.Message{Role: RoleUser, Content: "hi"})
+	_ = sess.Append(context.Background(), ai.Message{Role: RoleUser, Content: "hi"})
 
 	done := make(chan error, 1)
 	go func() {
@@ -124,20 +124,20 @@ func TestHarnessToolHooksFire(t *testing.T) {
 	registry := NewToolRegistry()
 	_ = registry.Register(&tools.BashTool{})
 
-	provider := llm.NewMockProviderFunc(func(ctx context.Context, model llm.Model, context llm.Context, opts llm.Options) (*llm.Response, error) {
+	provider := ai.NewMockProviderFunc(func(ctx context.Context, model ai.Model, context ai.Context, opts ai.ChatOptions) (*ai.Response, error) {
 		for i := len(context.Messages) - 1; i >= 0; i-- {
 			m := context.Messages[i]
 			if m.Role == RoleAssistant && len(m.ToolCalls) > 0 {
-				return &llm.Response{Content: "done"}, nil
+				return &ai.Response{Content: "done"}, nil
 			}
 			if m.Role == RoleUser {
 				break
 			}
 		}
-		return &llm.Response{
+		return &ai.Response{
 			Content: "running tool",
-			ToolCalls: []llm.ToolCall{
-				llm.MockToolCall("call-1", "bash", map[string]any{"command": "echo ok"}),
+			ToolCalls: []ai.ToolCall{
+				ai.MockToolCall("call-1", "bash", map[string]any{"command": "echo ok"}),
 			},
 		}, nil
 	})
@@ -150,7 +150,7 @@ func TestHarnessToolHooksFire(t *testing.T) {
 	})
 	_ = harness.Use(rec)
 
-	_ = sess.Append(context.Background(), llm.Message{Role: RoleUser, Content: "run"})
+	_ = sess.Append(context.Background(), ai.Message{Role: RoleUser, Content: "run"})
 
 	done := make(chan error, 1)
 	go func() {

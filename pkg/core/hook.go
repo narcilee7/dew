@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/narcilee7/dew/pkg/event"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/session"
 	"github.com/narcilee7/dew/pkg/tools"
 )
@@ -84,7 +84,7 @@ type HookEnvironment struct {
 	Turn int
 
 	// Call is the tool call being processed, if any.
-	Call *llm.ToolCall
+	Call *ai.ToolCall
 
 	// Result is the tool result being processed, if any.
 	Result *tools.ToolResult

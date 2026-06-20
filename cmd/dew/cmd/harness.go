@@ -11,7 +11,7 @@ import (
 	"github.com/narcilee7/dew/pkg/agent"
 	"github.com/narcilee7/dew/pkg/core"
 	"github.com/narcilee7/dew/pkg/fs"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/sandbox"
 	"github.com/narcilee7/dew/pkg/session"
 	"github.com/narcilee7/dew/pkg/skill"
@@ -24,7 +24,7 @@ import (
 type Runtime struct {
 	Logger   *slog.Logger
 	Config   Config
-	Provider llm.Provider
+	Provider ai.Provider
 	Registry tools.ToolRegistry
 	Session  session.Store
 	Factory  agent.AgentFactory
@@ -59,7 +59,15 @@ func DefaultConfig() Config {
 func NewRuntime(cfg Config) (*Runtime, error) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	provider := llm.NewMockProviderFunc(mockProvider)
+	var provider ai.Provider
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey != "" {
+		provider = ai.NewOpenAIProvider(apiKey)
+		logger.Info("using OpenAI provider")
+	} else {
+		provider = ai.NewMockProviderFunc(mockProvider)
+		logger.Info("using mock provider; set OPENAI_API_KEY for real models")
+	}
 
 	registry := core.NewToolRegistry()
 	_ = registry.Register(&tools.ReadTool{})
@@ -126,20 +134,20 @@ func (r *Runtime) NewSession(ctx context.Context) (session.Session, error) {
 }
 
 // mockProvider is a simple provider that echoes back a completion.
-func mockProvider(ctx context.Context, model llm.Model, context llm.Context, opts llm.Options) (*llm.Response, error) {
+func mockProvider(ctx context.Context, model ai.Model, context ai.Context, opts ai.ChatOptions) (*ai.Response, error) {
 	for i := len(context.Messages) - 1; i >= 0; i-- {
 		m := context.Messages[i]
 		if m.Role == core.RoleAssistant && len(m.ToolCalls) > 0 {
-			return &llm.Response{Content: "Done."}, nil
+			return &ai.Response{Content: "Done."}, nil
 		}
 		if m.Role == core.RoleUser {
 			break
 		}
 	}
-	return &llm.Response{
+	return &ai.Response{
 		Content: "I'll run a command for you.",
-		ToolCalls: []llm.ToolCall{
-			llm.MockToolCall("call-1", "bash", map[string]any{"command": "echo hello from dew"}),
+		ToolCalls: []ai.ToolCall{
+			ai.MockToolCall("call-1", "bash", map[string]any{"command": "echo hello from dew"}),
 		},
 	}, nil
 }

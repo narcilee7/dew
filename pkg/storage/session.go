@@ -8,7 +8,7 @@ import (
 
 	"github.com/narcilee7/dew/pkg/event"
 	"github.com/narcilee7/dew/pkg/fs"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 	"github.com/narcilee7/dew/pkg/session"
 )
 
@@ -23,7 +23,7 @@ type SessionMeta struct {
 // SessionState stores the compacted base state of a session.
 type SessionState struct {
 	ID       string       `json:"id"`
-	Messages []llm.Message `json:"messages"`
+	Messages []ai.Message `json:"messages"`
 }
 
 // JSONLSessionStore persists sessions as event-sourced files.

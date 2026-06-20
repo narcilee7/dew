@@ -6,7 +6,7 @@ import (
 
 	"github.com/narcilee7/dew/pkg/core"
 	"github.com/narcilee7/dew/pkg/event"
-	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/ai"
 )
 
 // Capability describes what an agent can do.
@@ -34,7 +34,7 @@ type Task struct {
 	ID       string        `json:"id"`
 	ParentID string        `json:"parent_id"`
 	Goal     string        `json:"goal"`
-	Context  []llm.Message `json:"context,omitempty"`
+	Context  []ai.Message `json:"context,omitempty"`
 	Spec     AgentSpec     `json:"spec"`
 	MaxTurns int           `json:"max_turns"`
 	Timeout  time.Duration `json:"timeout"`
