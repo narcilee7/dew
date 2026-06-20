@@ -1,0 +1,114 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/narcilee7/dew/pkg/agent"
+	"github.com/narcilee7/dew/pkg/core"
+	"github.com/narcilee7/dew/pkg/fs"
+	"github.com/narcilee7/dew/pkg/llm"
+	"github.com/narcilee7/dew/pkg/sandbox"
+	"github.com/narcilee7/dew/pkg/session"
+	"github.com/narcilee7/dew/pkg/tools"
+)
+
+// Harness holds the runtime dependencies for CLI commands.
+type Harness struct {
+	Logger   *slog.Logger
+	Config   Config
+	Provider llm.Provider
+	Registry tools.ToolRegistry
+	Session  session.Store
+	Factory  agent.AgentFactory
+	Pool     agent.Pool
+}
+
+// Config is a simplified runtime config.
+type Config struct {
+	Model        string
+	SystemPrompt string
+	MaxTurns     int
+	TimeoutMs    int
+	Tools        []string
+	DataDir      string
+}
+
+// DefaultConfig returns the default CLI config.
+func DefaultConfig() Config {
+	home, _ := os.UserHomeDir()
+	return Config{
+		Model:        "openai:gpt-4o",
+		SystemPrompt: "You are dew, a helpful coding agent.",
+		MaxTurns:     50,
+		TimeoutMs:    300_000,
+		Tools:        []string{"read", "bash"},
+		DataDir:      filepath.Join(home, ".local", "share", "dew"),
+	}
+}
+
+// NewHarness builds the runtime harness.
+func NewHarness(cfg Config) (*Harness, error) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	provider := llm.NewMockProviderFunc(mockProvider)
+
+	registry := core.NewToolRegistry()
+	_ = registry.Register(&tools.ReadTool{})
+	_ = registry.Register(&tools.BashTool{})
+	_ = registry.Register(&agent.TaskTool{Pool: agent.NewPool(nil, agent.PoolOptions{})})
+
+	sessStore := session.NewMemoryStore()
+
+	factory := agent.NewLocalFactory(provider, sessStore, registry, logger)
+	pool := agent.NewPool(factory, agent.PoolOptions{MaxIdle: 4})
+
+	return &Harness{
+		Logger:   logger,
+		Config:   cfg,
+		Provider: provider,
+		Registry: registry,
+		Session:  sessStore,
+		Factory:  factory,
+		Pool:     pool,
+	}, nil
+}
+
+// NewSession creates a new session with isolated filesystem and sandbox.
+func (h *Harness) NewSession(ctx context.Context) (session.Session, error) {
+	root, err := os.MkdirTemp("", "dew-*")
+	if err != nil {
+		return nil, fmt.Errorf("create root: %w", err)
+	}
+	fsys := fs.NewLocal(root)
+	box := sandbox.NewLocal("main", fsys)
+
+	return h.Session.Create(ctx, session.CreateOptions{
+		ID:      fmt.Sprintf("session-%d", time.Now().UnixNano()),
+		FS:      fsys,
+		Sandbox: box,
+	})
+}
+
+// mockProvider is a simple provider that echoes back a completion.
+func mockProvider(ctx context.Context, model llm.Model, context llm.Context, opts llm.Options) (*llm.Response, error) {
+	for i := len(context.Messages) - 1; i >= 0; i-- {
+		m := context.Messages[i]
+		if m.Role == core.RoleAssistant && len(m.ToolCalls) > 0 {
+			return &llm.Response{Content: "Done."}, nil
+		}
+		if m.Role == core.RoleUser {
+			break
+		}
+	}
+	return &llm.Response{
+		Content: "I'll run a command for you.",
+		ToolCalls: []llm.ToolCall{
+			llm.MockToolCall("call-1", "bash", map[string]any{"command": "echo hello from dew"}),
+		},
+	}, nil
+}
